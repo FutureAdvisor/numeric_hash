@@ -1,6 +1,6 @@
 = NumericHash
 
-Defines a hash whose values are +Numeric+ or additional nested +NumericHash+es.
+Defines a hash whose values are +Numeric+ or additional nested +NumericHash+'s.
 
 Common arithmetic methods available on +Numeric+ can be called on +NumericHash+
 to affect all values within the +NumericHash+ at once.
