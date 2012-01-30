@@ -5,5 +5,14 @@ Defines a hash whose values are +Numeric+ or additional nested +NumericHash+es.
 Common arithmetic methods available on +Numeric+ can be called on +NumericHash+
 to affect all values within the +NumericHash+ at once.
 
+== Examples
+
+  hash1 = NumericHash.new(:a => -1.0, :b => 2)  # => { :a => -1.6, :b => 2 }
+  hash2 = NumericHash.new(:a => 3, :c => 4)     # => { :a => 3, :c => 4 }
+  hash1 + hash2                                 # => { :a => 1.4, :b => 2, :c => 4 }
+  hash1 * 5                                     # => { :a => -8.0, :b => 10 }
+  -hash1                                        # => { :a => 1.6, :b => -2 }
+  hash1.round                                   # => { :a => -2, :b => 2 }
+
 Author::  Clyde Law (mailto:claw@alum.mit.edu)
 License:: Released under the MIT license
