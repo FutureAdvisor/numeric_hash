@@ -1,3 +1,3 @@
-module NumericHash
-  VERSION = "0.1.0"
+class NumericHash < Hash
+  VERSION = "0.1.1"
 end
