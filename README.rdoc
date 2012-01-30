@@ -1,0 +1,9 @@
+= NumericHash
+
+Defines a hash whose values are +Numeric+ or additional nested +NumericHash+es.
+
+Common arithmetic methods available on +Numeric+ can be called on +NumericHash+
+to affect all values within the +NumericHash+ at once.
+
+Author::  Clyde Law (mailto:claw@alum.mit.edu)
+License:: Released under the MIT license
