@@ -172,6 +172,15 @@ class NumericHash < Hash
   [:to_f, :to_i, :to_int].each do |convert_method|
     define_method("map_#{convert_method}".to_sym) { map_values(&convert_method) }
   end
+  
+  # Converts the NumericHash into a regular Hash.
+  #
+  def to_hash
+    inject({}) do |hash, (key, value)|
+      hash[key] = value.is_a?(NumericHash) ? value.to_hash : value
+      hash
+    end
+  end
 
 protected  
 
