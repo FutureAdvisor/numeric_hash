@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
   s.description = %q{Defines a hash whose values are Numeric or additional nested NumericHashes.}
   s.license     = 'MIT'
   
-  s.add_dependency('enumerate_hash_values')
+  s.add_dependency('enumerate_hash_values', '>= 0.2.0')
 
   s.rubyforge_project = "numeric_hash"
 

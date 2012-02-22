@@ -172,13 +172,25 @@ class NumericHash < Hash
   [:to_f, :to_i, :to_int].each do |convert_method|
     define_method("map_#{convert_method}".to_sym) { map_values(&convert_method) }
   end
-  
+
+  # Maps each numeric value using the specified block.
+  #
+  #   @hash                                     # => { :a => 1, :b => { :c => 2, :d => 3 } }
+  #   @hash.map_numeric { |value| "X" * value } # => { :a => "X", :b => { :c => "XX", :d => "XXX" } }
+  #   @hash.collect_numeric(&:to_s)             # => { :a => "1", :b => { :c => "2", :d => "3" } }
+  #
+  def collect_numeric(&block)
+    map_to_hash do |key, value|
+      [key, value.is_a?(NumericHash) ? value.collect_numeric(&block) : yield(value)]
+    end
+  end
+  alias_method :map_numeric, :collect_numeric
+
   # Converts the NumericHash into a regular Hash.
   #
   def to_hash
-    inject({}) do |hash, (key, value)|
-      hash[key] = value.is_a?(NumericHash) ? value.to_hash : value
-      hash
+    map_to_hash do |key, value|
+      [key, value.is_a?(NumericHash) ? value.to_hash : value]
     end
   end
 
