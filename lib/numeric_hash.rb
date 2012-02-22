@@ -180,8 +180,24 @@ class NumericHash < Hash
   #   @hash.collect_numeric(&:to_s)             # => { :a => "1", :b => { :c => "2", :d => "3" } }
   #
   def collect_numeric(&block)
+    # First attempt to map into a NumericHash.
+    map_to_hash(NumericHash) do |key, value|
+      if value.is_a?(NumericHash)
+        result = value.collect_numeric(&block)
+      else
+        result = yield(value)
+
+        # If the mapped value not Numeric, abort so that we try again by
+        # mapping into a regular Hash.
+        raise TypeError.new('result is not Numeric') unless result.is_a?(Numeric)
+      end
+      [key, result]
+    end
+  rescue TypeError
+    # At least one of the values mapped into a non-Numeric result; map into a
+    # regular Hash instead.
     map_to_hash do |key, value|
-      [key, value.is_a?(NumericHash) ? value.collect_numeric(&block) : yield(value)]
+      [key, value.is_a?(NumericHash) ? value.collect_numeric(&block) : yield(value) ]
     end
   end
   alias_method :map_numeric, :collect_numeric
@@ -224,7 +240,7 @@ protected
     elsif value.respond_to?(:to_int)
       value.to_int
     else
-      raise ArgumentError.new("cannot convert to Numeric: #{value.inspect}")
+      raise TypeError.new("cannot convert to Numeric: #{value.inspect}")
     end
   end
 
@@ -239,9 +255,9 @@ protected
       # First value is (or can be converted into) a Numeric
       value1 = convert_to_numeric(value1)
       if value2.is_a?(NumericHash)
-        # Second value is a NumericHash; each of its hash values should be
+        # Second value is a NumericHash; each of its Numeric values should be
         # applied to the first value.
-        value2.map_values { |value2_sub_value| value1.__send__(operator, value2_sub_value) }
+        value2.map_numeric { |value2_sub_value| value1.__send__(operator, value2_sub_value) }
       else
         # Second value also is (or can be converted into) a Numeric; apply the
         # two values directly.
