@@ -5,7 +5,7 @@ require "numeric_hash/version"
 # Common arithmetic methods available on Numeric can be called on NumericHash
 # to affect all values within the NumericHash at once.
 #
-class NumericHash < Hash
+class NumericHash < ::Hash
 
   # Default initial value for hash values when an initial value is unspecified.
   # Integer 0 is used instead of Float 0.0 because it can automatically be
@@ -27,8 +27,8 @@ class NumericHash < Hash
   #
   def initialize(initial_contents = nil, initial_value = DEFAULT_INITIAL_VALUE)
     case initial_contents
-      when Array  then apply_array!(initial_contents, initial_value)
-      when Hash   then apply_hash!(initial_contents, initial_value)
+      when ::Array  then apply_array!(initial_contents, initial_value)
+      when ::Hash   then apply_hash!(initial_contents, initial_value)
       else raise ArgumentError.new("invalid initial data: #{initial_contents.inspect}") if initial_contents
     end
   end
@@ -39,7 +39,7 @@ class NumericHash < Hash
 
   def apply_hash!(hash, initial_value = DEFAULT_INITIAL_VALUE)
     hash.each do |key, value|
-      self[key] = (value.is_a?(Array) || value.is_a?(Hash)) ? NumericHash.new(value, initial_value) : convert_to_numeric(value)
+      self[key] = (value.is_a?(::Array) || value.is_a?(::Hash)) ? NumericHash.new(value, initial_value) : convert_to_numeric(value)
     end
   end
 
@@ -106,25 +106,33 @@ class NumericHash < Hash
     compressed_key_values_sorted.last
   end
   
+  # *DEPRECATED* This method is deprecated. Consider using #map_numeric to
+  # perform the same function.
+  #
   # Set all negative values in the hash to zero.
   #
   #   @hash                   # => { :a => -0.6, :b => 1.2, :c => 0.4 }
   #   @hash.ignore_negatives  # => { :a => 0.0, :b => 1.2, :a => 0.4 }
   #
   def ignore_negatives
+    warn "DEPRECATION WARNING: This method is deprecated. Consider using #map_numeric to perform the same function. Called from: #{caller.first}"
     convert_negatives_to_zero(self)
   end
 
+  # *DEPRECATED* This method is deprecated. Consider using #compress with
+  # #reject_numeric to perform the same function.
+  #
   # Strips out any zero valued asset classes.
   #
   #   @hash             # => {:a => 0.0, :b => 0.0, :c => 0.8, :d => 0.15, :e => 0.05, :f => 0.0, :g => 0.0, :h => 0.0, :i => 0.0}
   #   @hash.strip_zero  # => {:c => 0.8, :e => 0.05, :d => 0.15}
   #
   def strip_zero
+    warn "DEPRECATION WARNING: This method is deprecated. Consider using #compress with #reject_numeric to perform the same function. Called from: #{caller.first}"
     # TODO: Previous version of the code only retained values > 0.0, so the refactored code below retains this behavior; verify whether this is still desired.
     compress.select_values! { |value| value > 0.0 }
   end
-  
+
   # Define arithmetic operators that apply a Numeric or another NumericHash to
   # the hash.  A Numeric argument is applied to each value in the hash.
   # Hash values of a NumericHash argument are applied to each corresponding
@@ -181,7 +189,7 @@ class NumericHash < Hash
   #
   def collect_numeric(&block)
     # First attempt to map into a NumericHash.
-    map_to_hash(NumericHash) do |key, value|
+    map_values do |value|
       if value.is_a?(NumericHash)
         result = value.collect_numeric(&block)
       else
@@ -189,9 +197,9 @@ class NumericHash < Hash
 
         # If the mapped value not Numeric, abort so that we try again by
         # mapping into a regular Hash.
-        raise TypeError.new('result is not Numeric') unless result.is_a?(Numeric)
+        raise TypeError.new("result is not Numeric: #{result.inspect}") unless result.is_a?(Numeric)
       end
-      [key, result]
+      result
     end
   rescue TypeError
     # At least one of the values mapped into a non-Numeric result; map into a
@@ -201,6 +209,109 @@ class NumericHash < Hash
     end
   end
   alias_method :map_numeric, :collect_numeric
+
+  def collect_numeric!(&block)
+    map_values! do |value|
+      if value.is_a?(NumericHash)
+        result = value.collect_numeric!(&block)
+      else
+        result = yield(value)
+
+        # If the mapped value not Numeric, abort since we can't change a
+        # NumericHash into a regular Hash.
+        raise TypeError.new("result is not Numeric: #{result.inspect}") unless result.is_a?(Numeric)
+      end
+      result
+    end
+  end
+  alias_method :map_numeric!, :collect_numeric!
+
+  # Rejects each numeric value for which the specified block evaluates to true.
+  # Any nested hashes that become empty during this procedure are also
+  # rejected.
+  #
+  #   @hash                                       # => { :a => 1, :b => 0.0, :c => { :d => 0, :e => -2 }, :f => { :g => 0.0 } }
+  #   @hash.reject_numeric(&:zero?)               # => { :a => 1, :c => { :e => -2 } }
+  #   @hash.reject_numeric { |value| value <= 0 } # => { :a => 1 }
+  #
+  def reject_numeric(&block)
+    inject_into_empty do |hash, (key, value)|
+      if value.is_a?(NumericHash)
+        rejected = value.reject_numeric(&block)
+        hash[key] = rejected unless rejected.empty?
+      elsif !yield(value)
+        hash[key] = value
+      end
+      hash
+    end
+  end
+
+  def reject_numeric!(&block)
+    reject_values! do |value|
+      if value.is_a?(NumericHash)
+        value.reject_values!(&block)
+        value.empty?
+      else
+        yield(value)
+      end
+    end
+  end
+
+  # Selects each numeric value for which the specified block evaluates to true.
+  # Any nested hashes with no selected values will not be included.
+  #
+  #   @hash                                       # => { :a => 1, :b => 0.0, :c => { :d => 0, :e => -2 }, :f => { :g => 0.0 } }
+  #   @hash.select_numeric(&:zero?)               # => { :b => 0.0, :c => { :d => 0 }, :f => { :g => 0.0 } }
+  #   @hash.select_numeric { |value| value <= 0 } # => { :b => 0.0, :c => { :d => 0, :e => -2 }, :f => { :g => 0.0 } }
+  #
+  def select_numeric
+    reject_numeric { |value| !yield(value) }
+  end
+
+  def select_numeric!
+    reject_numeric! { |value| !yield(value) }
+  end
+
+  # Performs a merge with another hash while recursively merging any nested
+  # hashes. If true is specified as a second argument, the merge will ensure
+  # that the key structure of the other hash is a subset of the structure of
+  # the hash.
+  #
+  #   @hash1                            # => { :a => 1, :b => { :c => 2 } }
+  #   @hash2                            # => { :b => 3 }
+  #   @hash3                            # => { :d => 4 }
+  #   @hash1.deep_merge(@hash2)         # => { :a => 1, :b => 3 }
+  #   @hash1.deep_merge(@hash2, true)   # raises TypeError
+  #   @hash1.deep_merge(@hash3)         # => { :a => 1, :b => { :c => 2 }, :d => 4 }
+  #   @hash1.deep_merge(@hash3, true)   # raises TypeError
+  #
+  def deep_merge(other_hash, match_structure = false)
+    raise ArgumentError.new('hash must be specified') unless other_hash.is_a?(::Hash)
+    raise TypeError.new('structure of specified hash is incompatible') if match_structure && !compatible_structure?(other_hash)
+
+    other_hash.inject(self.copy) do |hash, (key, value)|
+      hash[key] = if hash[key].is_a?(NumericHash) && value.is_a?(::Hash)
+                    hash[key].deep_merge(value, match_structure)
+                  else
+                    sanitize_numeric_hash_value(value)
+                  end
+      hash
+    end
+  end
+
+  def deep_merge!(other_hash, match_structure = false)
+    raise ArgumentError.new('hash not specified') unless other_hash.is_a?(::Hash)
+    raise TypeError.new('structure of specified hash is incompatible') if match_structure && !compatible_structure?(other_hash)
+
+    other_hash.each do |key, value|
+      if self[key].is_a?(NumericHash) && value.is_a?(::Hash)
+        self[key].deep_merge!(value, match_structure)
+      else
+        self[key] = sanitize_numeric_hash_value(value)
+      end
+    end
+    self
+  end
 
   # Converts the NumericHash into a regular Hash.
   #
@@ -227,20 +338,24 @@ protected
   # Helper method for converting a specified value to a Numeric.
   #
   def convert_to_numeric(value)
-    if value.is_a?(NumericHash)
-      value.total
-    elsif value.is_a?(Numeric)
-      value
-    elsif value.nil?
-      DEFAULT_INITIAL_VALUE
-    elsif value.respond_to?(:to_f)
-      value.to_f
-    elsif value.respond_to?(:to_i)
-      value.to_i
-    elsif value.respond_to?(:to_int)
-      value.to_int
-    else
-      raise TypeError.new("cannot convert to Numeric: #{value.inspect}")
+    case
+      when value.is_a?(NumericHash)   then value.total
+      when value.is_a?(Numeric)       then value
+      when value.nil?                 then DEFAULT_INITIAL_VALUE
+      when value.respond_to?(:to_f)   then value.to_f
+      when value.respond_to?(:to_i)   then value.to_i
+      when value.respond_to?(:to_int) then value.to_int
+      else raise TypeError.new("cannot convert to Numeric: #{value.inspect}")
+    end
+  end
+
+  # Helper method for sanitizing a value to be placed into a NumericHash.
+  #
+  def sanitize_numeric_hash_value(value)
+    case value
+      when NumericHash  then value
+      when Hash         then NumericHash.new(value)
+      else convert_to_numeric(value)
     end
   end
 
@@ -270,6 +385,18 @@ protected
   #
   def compressed_key_values_sorted
     compress.sort_by { |key, value| value }
+  end
+
+  # Helper method that determines whether the structure of the specified hash
+  # is a subset of the structure of the hash.
+  #
+  def compatible_structure?(other_hash)
+    other_hash.all? do |key, value|
+      self.has_key?(key) && (
+        (!value.is_a?(::Hash) && !self[key].is_a?(NumericHash)) ||
+        (value.is_a?(::Hash) && self[key].is_a?(NumericHash) && self[key].compatible_structure?(value))
+      )
+    end
   end
 
   # Helper method for reconciling traits from another hash when a binary
