@@ -75,9 +75,13 @@ class NumericHash < ::Hash
   #   @hash.normalize(120)  # => { :a => 12.0, :b => 24.0, :c => 36.0, :d => 48.0 }
   #
   def normalize(magnitude = 1.0)
-    norm_factor = magnitude / total.to_f
-    norm_factor = 0.0 unless norm_factor.finite?  # If total was zero, the normalization factor will not be finite; set it to zero in this case.
+    norm_factor = normalization_factor(magnitude)
     map_values { |value| value * norm_factor }
+  end
+
+  def normalize!(magnitude = 1.0)
+    norm_factor = normalization_factor(magnitude)
+    map_values! { |value| value * norm_factor }
   end
 
   # Shortcuts to normalize the hash to various totals.
@@ -405,6 +409,15 @@ protected
   def reconcile_traits_with!(hash)
     # There are no traits to reconcile in the base NumericHash.
     self
+  end
+
+  # Helper method for calculating the normalization factor that needs to be
+  # applied to each value for a given magnitude.
+  #
+  def normalization_factor(magnitude)
+    norm_factor = magnitude / total.to_f
+    norm_factor = 0.0 unless norm_factor.finite?  # If total was zero, the normalization factor will not be finite; set it to zero in this case.
+    norm_factor
   end
 
   class << self
