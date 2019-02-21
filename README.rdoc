@@ -14,5 +14,5 @@ to affect all values within the +NumericHash+ at once.
   -hash1                                        # => { :a => 1.6, :b => -2 }
   hash1.round                                   # => { :a => -2, :b => 2 }
 
-Author::  Clyde Law (mailto:claw@alum.mit.edu)
+Author::  FutureAdvisor
 License:: Released under the MIT license

@@ -5,9 +5,9 @@ require "numeric_hash/version"
 Gem::Specification.new do |s|
   s.name        = "numeric_hash"
   s.version     = NumericHash::VERSION
-  s.authors     = ["Clyde Law"]
-  s.email       = ["claw@alum.mit.edu"]
-  s.homepage    = %q{http://github.com/Umofomia/numeric_hash}
+  s.authors     = ["FutureAdvisor"]
+  s.email       = ["core.platform@futureadvisor.com"]
+  s.homepage    = %q{http://github.com/FutureAdvisor/numeric_hash}
   s.summary     = %q{Defines a hash whose values are Numeric or additional nested NumericHashes.}
   s.description = %q{Defines a hash whose values are Numeric or additional nested NumericHashes.}
   s.license     = 'MIT'
